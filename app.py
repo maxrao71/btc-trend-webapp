@@ -5,23 +5,24 @@ import requests
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-st.set_page_config(page_title="BTC 趨勢圖 - CoinGecko 版", layout="wide")
-st.title("📈 BTC 趨勢線判讀工具（使用 CoinGecko 數據）")
+st.set_page_config(page_title="BTC 趨勢圖 - CryptoCompare 版", layout="wide")
+st.title("📈 BTC 趨勢線判讀工具（使用 CryptoCompare 數據）")
 
 @st.cache_data(ttl=600)
 def fetch_data():
     try:
-        url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
+        url = "https://min-api.cryptocompare.com/data/v2/histohour"
         params = {
-            "vs_currency": "usd",
-            "days": "3",
-            "interval": "hourly"
+            "fsym": "BTC",
+            "tsym": "USD",
+            "limit": 100
         }
         response = requests.get(url, params=params)
         response.raise_for_status()
-        prices = response.json().get("prices", [])
-        df = pd.DataFrame(prices, columns=["timestamp", "price"])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        data = response.json()["Data"]["Data"]
+        df = pd.DataFrame(data)
+        df["time"] = pd.to_datetime(df["time"], unit="s")
+        df.rename(columns={"close": "price"}, inplace=True)
         return df
     except Exception as e:
         st.error(f"資料讀取失敗：{e}")
@@ -36,8 +37,8 @@ if df is not None and not df.empty:
     trend = np.poly1d(coef)(x)
 
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(df["timestamp"], y, label="價格", color="white")
-    ax.plot(df["timestamp"], trend, "--", label="趨勢線", color="orange")
+    ax.plot(df["time"], y, label="價格", color="white")
+    ax.plot(df["time"], trend, "--", label="趨勢線", color="orange")
     ax.set_facecolor("black")
     ax.tick_params(colors="white")
     ax.legend()
