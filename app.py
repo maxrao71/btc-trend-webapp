@@ -3,31 +3,25 @@ import pandas as pd
 import numpy as np
 import requests
 import matplotlib.pyplot as plt
+from datetime import datetime
 
-st.set_page_config(page_title="BTC 趨勢圖", layout="wide")
-st.title("📈 BTC 趨勢線判讀工具")
-
-API_URL = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100"
+st.set_page_config(page_title="BTC 趨勢圖 - CoinGecko 版", layout="wide")
+st.title("📈 BTC 趨勢線判讀工具（使用 CoinGecko 數據）")
 
 @st.cache_data(ttl=600)
 def fetch_data():
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-            "Accept": "application/json, text/plain, */*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.binance.com/",
-            "Origin": "https://www.binance.com"
+        url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
+        params = {
+            "vs_currency": "usd",
+            "days": "3",
+            "interval": "hourly"
         }
-        response = requests.get(API_URL, headers=headers, timeout=10)
+        response = requests.get(url, params=params)
         response.raise_for_status()
-        data = response.json()
-        df = pd.DataFrame(data, columns=[
-            "timestamp", "open", "high", "low", "close", "volume",
-            "_", "__", "___", "____", "_____", "______"
-        ])
-        df["timestamp"] = pd.to_datetime(df["timestamp"], unit='ms')
-        df["close"] = pd.to_numeric(df["close"])
+        prices = response.json().get("prices", [])
+        df = pd.DataFrame(prices, columns=["timestamp", "price"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
         return df
     except Exception as e:
         st.error(f"資料讀取失敗：{e}")
@@ -37,12 +31,12 @@ df = fetch_data()
 if df is not None and not df.empty:
     st.success("✅ 成功取得資料")
     x = np.arange(len(df))
-    y = df["close"].values
+    y = df["price"].values
     coef = np.polyfit(x, y, 1)
     trend = np.poly1d(coef)(x)
 
     fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(df["timestamp"], y, label="收盤價", color="white")
+    ax.plot(df["timestamp"], y, label="價格", color="white")
     ax.plot(df["timestamp"], trend, "--", label="趨勢線", color="orange")
     ax.set_facecolor("black")
     ax.tick_params(colors="white")
