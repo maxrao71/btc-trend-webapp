@@ -13,9 +13,13 @@ API_URL = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limi
 def fetch_data():
     try:
         headers = {
-            "User-Agent": "Mozilla/5.0"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.binance.com/",
+            "Origin": "https://www.binance.com"
         }
-        response = requests.get(API_URL, headers=headers)
+        response = requests.get(API_URL, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
         df = pd.DataFrame(data, columns=[
