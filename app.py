@@ -10,28 +10,9 @@ st.title("BTC 趨勢圖（黑底風格＋趨勢線＋進出場點）")
 
 @st.cache_data(ttl=300)
 def fetch_proxy_data():
-    url = "https://raw.githubusercontent.com/plotly/datasets/master/2014_usa_states.json"  # Replace with your real proxy server URL later
+    url = "https://raw.githubusercontent.com/hanfu0405/mock-btc-data/main/sample_binance_kline_data.json"
     data = requests.get(url).json()
-    # Simulate Kline structure for demo purposes
-    import time
-    from datetime import datetime, timedelta
-    import random
-    kline_data = []
-    base_time = datetime.utcnow() - timedelta(hours=100)
-    price = 60000.0
-    for i in range(100):
-        timestamp = int((base_time + timedelta(hours=i)).timestamp() * 1000)
-        open_price = price + random.uniform(-1000, 1000)
-        high_price = open_price + random.uniform(0, 500)
-        low_price = open_price - random.uniform(0, 500)
-        close_price = random.uniform(low_price, high_price)
-        volume = random.uniform(10, 100)
-        kline = [
-            timestamp, open_price, high_price, low_price, close_price,
-            volume, "", "", "", "", "", ""
-        ]
-        kline_data.append(kline)
-    df = pd.DataFrame(kline_data, columns=[
+    df = pd.DataFrame(data, columns=[
         'timestamp', 'open', 'high', 'low', 'close', 'volume',
         '_1', '_2', '_3', '_4', '_5', '_6'
     ])
