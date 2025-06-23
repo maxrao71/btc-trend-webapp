@@ -9,7 +9,7 @@ st.set_page_config(page_title="BTC 趨勢圖：黑底＋進出場提示", layout
 
 st.title("📉 BTC 趨勢圖：黑底＋進出場提示")
 
-API_URL = "https://btc-realtime-proxy.vercel.app/api/kline?symbol=BTCUSDT&interval=1h&limit=100"
+API_URL = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100"
 
 @st.cache_data(ttl=600)
 def fetch_data():
