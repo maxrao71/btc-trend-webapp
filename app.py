@@ -8,61 +8,48 @@ import plotly.graph_objects as go
 st.set_page_config(layout="wide")
 st.title("BTC 趨勢圖：黑底＋進出場提示")
 
-# 🚀 使用你測試成功的 URL
-url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100"
-r = requests.get(url)
-data = r.json()
+@st.cache_data
+def fetch_data():
+    url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100"
+    response = requests.get(url)
+    data = response.json()
+    df = pd.DataFrame(data, columns=[
+        "time", "open", "high", "low", "close", "volume",
+        "close_time", "quote_asset_volume", "num_trades",
+        "taker_buy_base_volume", "taker_buy_quote_volume", "ignore"
+    ])
+    df["time"] = pd.to_datetime(df["time"], unit="ms")
+    df["close"] = df["close"].astype(float)
+    return df
 
-df = pd.DataFrame(data, columns=[
-    "timestamp", "open", "high", "low", "close", "volume",
-    "close_time", "quote_asset_volume", "num_trades",
-    "taker_buy_base", "taker_buy_quote", "ignore"
-])
-df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-for col in ["open", "high", "low", "close", "volume"]:
-    df[col] = df[col].astype(float)
+df = fetch_data()
 
-# 畫圖
 fig = go.Figure()
-fig.add_trace(go.Candlestick(
-    x=df["timestamp"], open=df["open"], high=df["high"],
-    low=df["low"], close=df["close"],
-    name="K線"
-))
+fig.update_layout(template="plotly_dark", title="BTC 價格趨勢圖")
 
-# 趨勢線（近20根線性）
-x = np.arange(20)
-y = df["close"][-20:].values
-coef = np.polyfit(x, y, 1)
-trend = np.poly1d(coef)(x)
-fig.add_trace(go.Scatter(
-    x=df["timestamp"][-20:],
-    y=trend,
-    mode="lines",
-    name="趨勢線",
-    line=dict(color="yellow", width=2)
-))
+# 畫出收盤價線
+fig.add_trace(go.Scatter(x=df['time'], y=df['close'], mode='lines', name='Close'))
 
-# 判斷訊號
+# 線性回歸趨勢線
+x = np.arange(len(df))
+y = df["close"].values
+
+if len(x) == len(y):
+    coef = np.polyfit(x, y, 1)
+    trend = coef[0] * x + coef[1]
+    fig.add_trace(go.Scatter(x=df["time"], y=trend, mode="lines", name="Trend Line"))
+else:
+    st.warning("資料長度不一致，無法計算趨勢線。")
+
+# 進出場提示 (簡化版)
+entry_price = df["close"].iloc[-2]
 latest_price = df["close"].iloc[-1]
-latest_trend = trend[-1]
-signal = None
-if latest_price > latest_trend * 1.01:
-    signal = "📈 進場訊號！"
-    fig.add_trace(go.Scatter(
-        x=[df["timestamp"].iloc[-1]], y=[latest_price],
-        mode="markers", marker=dict(color="lime", size=12), name="進場"
-    ))
-elif latest_price < latest_trend * 0.99:
-    signal = "⚠️ 出場訊號！"
-    fig.add_trace(go.Scatter(
-        x=[df["timestamp"].iloc[-1]], y=[latest_price],
-        mode="markers", marker=dict(color="red", size=12), name="出場"
-    ))
 
-# 顯示
-fig.update_layout(template="plotly_dark", xaxis_rangeslider_visible=False)
+if latest_price > entry_price * 1.01:
+    st.success("📈 出場訊號（漲超過 1%）")
+elif latest_price < entry_price * 0.99:
+    st.error("📉 進場訊號（跌超過 1%）")
+else:
+    st.info("⏳ 尚未出現明確訊號")
+
 st.plotly_chart(fig, use_container_width=True)
-
-if signal:
-    st.markdown(f"### 🔔 {signal}")
