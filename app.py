@@ -7,38 +7,44 @@ import plotly.graph_objs as go
 
 st.title("BTC 趨勢圖：黑底＋進出場提示")
 
-# 抓取資料
-url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100"
-try:
-    response = requests.get(url)
-    raw_data = response.json()
+@st.cache_data
+def fetch_data():
+    url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100"
+    try:
+        response = requests.get(url)
+        data = response.json()
+        if isinstance(data, list):
+            df = pd.DataFrame(data, columns=[
+                "timestamp", "open", "high", "low", "close", "volume",
+                "close_time", "quote_asset_volume", "number_of_trades",
+                "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"
+            ])
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+            df["close"] = pd.to_numeric(df["close"], errors="coerce")
+            df.dropna(subset=["close"], inplace=True)
+            return df
+        else:
+            st.error("資料讀取失敗：API 回傳格式錯誤")
+            return pd.DataFrame()
+    except Exception as e:
+        st.error(f"資料讀取失敗：{e}")
+        return pd.DataFrame()
 
-    if not isinstance(raw_data, list) or len(raw_data) == 0:
-        st.error("資料格式異常或不足")
-    else:
-        df = pd.DataFrame(raw_data, columns=[
-            "time", "open", "high", "low", "close", "volume",
-            "close_time", "quote_asset_volume", "number_of_trades",
-            "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"
-        ])
-        df["close"] = df["close"].astype(float)
-        df["time"] = pd.to_datetime(df["time"], unit='ms')
+df = fetch_data()
+if df.empty:
+    st.warning("無法取得資料，請稍後再試。")
+else:
+    st.subheader("BTC 收盤價走勢")
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df["timestamp"], y=df["close"], mode="lines", name="Close"))
 
+    # 線性回歸趨勢線（如果資料夠）
+    if len(df) > 10:
         x = np.arange(len(df))
         y = df["close"].values
+        coef = np.polyfit(x, y, 1)
+        trend = coef[0] * x + coef[1]
+        fig.add_trace(go.Scatter(x=df["timestamp"], y=trend, mode="lines", name="Trend", line=dict(dash="dot")))
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df["time"], y=y, mode='lines', name='BTC Price'))
-
-        # 防呆檢查
-        if len(x) > 0 and len(y) > 0:
-            coef = np.polyfit(x, y, 1)
-            trend = np.polyval(coef, x)
-            fig.add_trace(go.Scatter(x=df["time"], y=trend, mode='lines', name='Trend'))
-        else:
-            st.error("資料不足，無法繪製趨勢線")
-
-        st.plotly_chart(fig)
-
-except Exception as e:
-    st.error(f"資料讀取失敗：{str(e)}")
+    fig.update_layout(xaxis_title="時間", yaxis_title="價格 (USDT)", height=500)
+    st.plotly_chart(fig)
