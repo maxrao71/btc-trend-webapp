@@ -44,6 +44,11 @@ if len(df) >= lookback:
         coef = np.polyfit(x, y, 1)
         trend_line = np.poly1d(coef)(x)
 
+        # 趨勢方向說明
+        slope = coef[0]
+        trend_desc = "上升趨勢 📈" if slope > 0 else "下降趨勢 📉"
+        st.subheader(f"趨勢偵測結果：{trend_desc}（斜率：{slope:.2f}）")
+
         # Calculate signals
         latest_price = df['close'].iloc[-1]
         latest_trend = trend_line[-1]
@@ -59,7 +64,7 @@ if len(df) >= lookback:
             x=trend_x,
             y=trend_line,
             mode='lines',
-            line=dict(color='deepskyblue', width=2, dash='dash'),
+            line=dict(color='yellow', width=3),
             name='趨勢線'
         ))
 
