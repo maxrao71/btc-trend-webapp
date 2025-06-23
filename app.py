@@ -21,26 +21,9 @@ def fetch_btc_ohlcv():
     return df
 
 df = fetch_btc_ohlcv()
-
-# Trend line using linear regression
-lookback = 20
-x = np.arange(lookback)
-y = df['close'][-lookback:].values
-coef = np.polyfit(x, y, 1)
-trend_line = np.poly1d(coef)(x)
-
-# Calculate signals
-latest_price = df['close'].iloc[-1]
-latest_trend = trend_line[-1]
-signal_type = None
-if latest_price > latest_trend * 1.01:
-    signal_type = 'buy'
-elif latest_price < latest_trend * 0.99:
-    signal_type = 'sell'
-
 fig = go.Figure()
 
-# Candlestick
+# Candlestick chart
 fig.add_trace(go.Candlestick(
     x=df['timestamp'],
     open=df['open'],
@@ -52,33 +35,51 @@ fig.add_trace(go.Candlestick(
     name='K線'
 ))
 
-# Add trend line
-trend_x = df['timestamp'][-lookback:]
-fig.add_trace(go.Scatter(
-    x=trend_x,
-    y=trend_line,
-    mode='lines',
-    line=dict(color='deepskyblue', width=2, dash='dash'),
-    name='趨勢線'
-))
+# Trend line and signals
+lookback = 20
+if len(df) >= lookback:
+    x = np.arange(lookback)
+    y = df['close'][-lookback:].values
+    if len(x) == len(y):
+        coef = np.polyfit(x, y, 1)
+        trend_line = np.poly1d(coef)(x)
 
-# Add signal dot
-if signal_type == 'buy':
-    fig.add_trace(go.Scatter(
-        x=[df['timestamp'].iloc[-1]],
-        y=[latest_price],
-        mode='markers',
-        marker=dict(color='lime', size=12, symbol='circle'),
-        name='進場點'
-    ))
-elif signal_type == 'sell':
-    fig.add_trace(go.Scatter(
-        x=[df['timestamp'].iloc[-1]],
-        y=[latest_price],
-        mode='markers',
-        marker=dict(color='red', size=12, symbol='circle'),
-        name='出場點'
-    ))
+        # Calculate signals
+        latest_price = df['close'].iloc[-1]
+        latest_trend = trend_line[-1]
+        signal_type = None
+        if latest_price > latest_trend * 1.01:
+            signal_type = 'buy'
+        elif latest_price < latest_trend * 0.99:
+            signal_type = 'sell'
+
+        # Add trend line
+        trend_x = df['timestamp'][-lookback:]
+        fig.add_trace(go.Scatter(
+            x=trend_x,
+            y=trend_line,
+            mode='lines',
+            line=dict(color='deepskyblue', width=2, dash='dash'),
+            name='趨勢線'
+        ))
+
+        # Add signal dot
+        if signal_type == 'buy':
+            fig.add_trace(go.Scatter(
+                x=[df['timestamp'].iloc[-1]],
+                y=[latest_price],
+                mode='markers',
+                marker=dict(color='lime', size=12, symbol='circle'),
+                name='進場點'
+            ))
+        elif signal_type == 'sell':
+            fig.add_trace(go.Scatter(
+                x=[df['timestamp'].iloc[-1]],
+                y=[latest_price],
+                mode='markers',
+                marker=dict(color='red', size=12, symbol='circle'),
+                name='出場點'
+            ))
 
 fig.update_layout(
     plot_bgcolor='black',
