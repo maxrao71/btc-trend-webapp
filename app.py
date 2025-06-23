@@ -10,7 +10,7 @@ st.title("BTC 趨勢圖（黑底風格＋趨勢線＋進出場點）")
 
 @st.cache_data(ttl=300)
 def fetch_proxy_data():
-    url = "https://raw.githubusercontent.com/hanfu0405/mock-btc-data/main/sample_binance_kline_data.json"
+    url = "https://btc-mock-api.vercel.app/api/kline"
     data = requests.get(url).json()
     df = pd.DataFrame(data, columns=[
         'timestamp', 'open', 'high', 'low', 'close', 'volume',
