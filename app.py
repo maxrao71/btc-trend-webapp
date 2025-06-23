@@ -9,7 +9,7 @@ st.set_page_config(page_title="BTC 趨勢圖", layout="wide")
 st.title("📉 BTC 趨勢圖：黑底＋進出場提示")
 
 def fetch_binance_klines(symbol="BTCUSDT", interval="1h", limit=100):
-    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    url = f"https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1h&limit=100"
     try:
         response = requests.get(url)
         response.raise_for_status()
