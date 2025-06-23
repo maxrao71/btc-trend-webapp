@@ -60,7 +60,11 @@ if len(df) >= lookback:
             name='趨勢線'
         ))
 
-        if signal_type == 'buy':
+        
+notification_msg = ""
+if signal_type == 'buy':
+    notification_msg = "📢 偵測到進場訊號，建議觀察趨勢是否延續"
+
             fig.add_trace(go.Scatter(
                 x=[df['timestamp'].iloc[-1]],
                 y=[latest_price],
@@ -68,7 +72,10 @@ if len(df) >= lookback:
                 marker=dict(color='lime', size=12, symbol='circle'),
                 name='進場點'
             ))
-        elif signal_type == 'sell':
+        
+elif signal_type == 'sell':
+    notification_msg = "⚠️ 偵測到出場訊號，請注意風險控管"
+
             fig.add_trace(go.Scatter(
                 x=[df['timestamp'].iloc[-1]],
                 y=[latest_price],
@@ -85,4 +92,10 @@ fig.update_layout(
     title="BTC 模擬資料 K 線圖（含趨勢線與進出場提示）"
 )
 
+
 st.plotly_chart(fig, use_container_width=True)
+
+# 顯示模擬通知訊息
+if 'notification_msg' in locals() and notification_msg:
+    st.markdown(f"### 🔔 通知提醒：{notification_msg}")
+
