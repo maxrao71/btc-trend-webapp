@@ -5,28 +5,34 @@ import requests
 import plotly.graph_objects as go
 from datetime import datetime
 
-st.set_page_config(page_title="BTC 趨勢線預測互動圖", layout="wide")
-st.title("📈 BTC 趨勢線進出場提示（互動式圖表＋預測）")
+st.set_page_config(page_title="BTC 趨勢預測圖 (Bybit)", layout="wide")
+st.title("📈 BTC 趨勢進出場圖（Bybit API 版）")
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=300)
 def fetch_data():
     try:
-        url = "https://min-api.cryptocompare.com/data/v2/histohour"
-        params = {"fsym": "BTC", "tsym": "USD", "limit": 100}
+        url = "https://api.bybit.com/v5/market/kline"
+        params = {
+            "category": "linear",
+            "symbol": "BTCUSDT",
+            "interval": "60",  # 60分鐘K線，可改為 1, 5, 15, 240 等
+            "limit": "100"
+        }
         response = requests.get(url, params=params)
         response.raise_for_status()
-        data = response.json()["Data"]["Data"]
-        df = pd.DataFrame(data)
-        df["time"] = pd.to_datetime(df["time"], unit="s")
-        df.rename(columns={"close": "price"}, inplace=True)
-        return df
+        result = response.json()["result"]
+        data = result["list"]
+        df = pd.DataFrame(data, columns=["time", "open", "high", "low", "close", "volume", "turnover"])
+        df["time"] = pd.to_datetime(df["time"], unit="ms")
+        df["price"] = df["close"].astype(float)
+        return df[["time", "price"]]
     except Exception as e:
-        st.error(f"資料讀取失敗：{e}")
+        st.error(f"❌ 資料讀取失敗：{e}")
         return None
 
 df = fetch_data()
 if df is not None and not df.empty:
-    st.success("✅ 成功取得資料")
+    st.success("✅ 成功取得最新 BTC 資料（Bybit）")
     x = np.arange(len(df))
     y = df["price"].values
     coef = np.polyfit(x, y, 1)
@@ -40,7 +46,7 @@ if df is not None and not df.empty:
         elif y[i - 1] > trend[i - 1] and y[i] < trend[i]:
             signals.append(("exit", df["time"].iloc[i], y[i]))
 
-    # 建立互動式圖表
+    # 畫圖
     fig = go.Figure()
 
     fig.add_trace(go.Scatter(
@@ -75,15 +81,12 @@ if df is not None and not df.empty:
         plot_bgcolor='black',
         paper_bgcolor='black',
         font=dict(color='white'),
-        title="BTC 價格走勢與進出場點",
+        title="BTC 價格趨勢與進出場點（Bybit）",
         xaxis=dict(title='時間'),
         yaxis=dict(title='價格 (USD)'),
         height=500
     )
 
     st.plotly_chart(fig, use_container_width=True)
-
-    # 預留：未來加入多趨勢線預測
-    st.markdown("🧠 *預測模組開發中，將提供下一波進場/出場時機分析*")
 else:
     st.warning("⚠️ 無法取得資料，請稍後再試")
