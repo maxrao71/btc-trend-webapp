@@ -1,2 +1,4 @@
-# requirements.txt
-# 此為模擬檔案內容
+streamlit
+pandas
+plotly
+numpy
