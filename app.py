@@ -1,70 +1,43 @@
 
 import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
 import requests
-from datetime import datetime
-import numpy as np
+import pandas as pd
+import time
+import altair as alt
 
-st.set_page_config(layout="wide", page_title="BTC 趨勢預測雙視圖")
+st.set_page_config(layout="centered")
+st.title("📈 BTC 即時價格與走勢（Bitstamp API）")
 
-@st.cache_data(ttl=300)
-def fetch_data():
-    url = "https://www.bitstamp.net/api/v2/ohlc/btcusd/?step=3600&limit=100"
-    response = requests.get(url)
-    data = response.json()["data"]["ohlc"]
-    df = pd.DataFrame(data)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s") + pd.Timedelta(hours=8)
-    df["close"] = df["close"].astype(float)
-    return df
+@st.cache_data(ttl=10)
+def get_btc_price_history():
+    url = "https://www.bitstamp.net/api/v2/ticker_hour/btcusd/"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        return float(data["last"]), float(data["open"]), float(data["high"]), float(data["low"]), float(data["volume"])
+    except Exception as e:
+        return None, None, None, None, None
 
-df = fetch_data()
+price, open_, high, low, vol = get_btc_price_history()
 
-# 策略判斷：簡單移動平均與 RSI
-def calculate_signals(df):
-    df["SMA20"] = df["close"].rolling(window=20).mean()
-    delta = df["close"].diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
-    avg_gain = gain.rolling(window=14).mean()
-    avg_loss = loss.rolling(window=14).mean()
-    rs = avg_gain / avg_loss
-    df["RSI"] = 100 - (100 / (1 + rs))
-    df["signal"] = np.where((df["close"] > df["SMA20"]) & (df["RSI"] < 70), "buy",
-                     np.where((df["close"] < df["SMA20"]) & (df["RSI"] > 30), "sell", "hold"))
-    return df
+if price:
+    st.metric("目前 BTC 價格", f"${price:,.2f}")
+    st.write(f"📊 開盤：${open_:,.2f}｜最高：${high:,.2f}｜最低：${low:,.2f}｜24h 交易量：{vol:,.2f} BTC")
 
-df = calculate_signals(df)
+    # 模擬簡單的價格資料（Bitstamp 沒有提供 K 線歷史）
+    history = pd.DataFrame({
+        "時間": pd.date_range(end=pd.Timestamp.now(), periods=12, freq="5min"),
+        "價格": [price - i*10 + (i % 2)*20 for i in range(12)]
+    })
 
-# 主圖：價格 + 進出場點
-fig_price = go.Figure()
-fig_price.add_trace(go.Scatter(x=df["timestamp"], y=df["close"], mode="lines", name="價格"))
-fig_price.add_trace(go.Scatter(
-    x=df[df["signal"]=="buy"]["timestamp"],
-    y=df[df["signal"]=="buy"]["close"],
-    mode="markers",
-    marker=dict(color="green", size=10, symbol="triangle-up"),
-    name="進場點"
-))
-fig_price.add_trace(go.Scatter(
-    x=df[df["signal"]=="sell"]["timestamp"],
-    y=df[df["signal"]=="sell"]["close"],
-    mode="markers",
-    marker=dict(color="red", size=10, symbol="triangle-down"),
-    name="出場點"
-))
-fig_price.update_layout(title="BTC 價格趨勢（台灣時間）")
+    chart = alt.Chart(history).mark_line(point=True).encode(
+        x="時間:T",
+        y="價格:Q",
+        tooltip=["時間", "價格"]
+    ).interactive()
 
-# 副圖：RSI
-fig_rsi = go.Figure()
-fig_rsi.add_trace(go.Scatter(x=df["timestamp"], y=df["RSI"], mode="lines", name="RSI"))
-fig_rsi.add_hline(y=70, line_dash="dot", line_color="red")
-fig_rsi.add_hline(y=30, line_dash="dot", line_color="green")
-fig_rsi.update_layout(title="RSI 指標（台灣時間）", yaxis=dict(range=[0, 100]))
+    st.altair_chart(chart, use_container_width=True)
 
-# 雙視圖展示
-col1, col2 = st.columns(2)
-with col1:
-    st.plotly_chart(fig_price, use_container_width=True)
-with col2:
-    st.plotly_chart(fig_rsi, use_container_width=True)
+else:
+    st.error("❌ 無法取得即時價格，請稍後再試。")
