@@ -1,44 +1,43 @@
 
-import streamlit as st
 import requests
 import pandas as pd
-import plotly.graph_objs as go
+import streamlit as st
+import plotly.graph_objects as go
 
 st.set_page_config(layout="wide")
-st.title("📈 BTC 趨勢預測與互動圖表（CoinGecko）")
+st.title("📈 BTC 即時趨勢圖 (Binance API)")
 
-# 取得 BTC 歷史價格（近 24 小時，每小時資料）
-url = "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart"
-params = {
-    "vs_currency": "usd",
-    "days": "1",
-    "interval": "hourly"
-}
-
+# 1. 讀取 Binance API
 try:
-    r = requests.get(url, params=params)
-    r.raise_for_status()
-    data = r.json()
+    url = "https://api.binance.com/api/v3/klines"
+    params = {
+        "symbol": "BTCUSDT",
+        "interval": "1h",
+        "limit": 100
+    }
+    res = requests.get(url, params=params)
+    res.raise_for_status()
+    raw_data = res.json()
 
-    df = pd.DataFrame(data["prices"], columns=["timestamp", "price"])
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+    # 2. 整理為 DataFrame
+    df = pd.DataFrame(raw_data, columns=[
+        "Open Time", "Open", "High", "Low", "Close", "Volume",
+        "Close Time", "Quote Asset Volume", "Number of Trades",
+        "Taker Buy Base Volume", "Taker Buy Quote Volume", "Ignore"
+    ])
+    df["Open Time"] = pd.to_datetime(df["Open Time"], unit="ms")
+    df["Close"] = df["Close"].astype(float)
 
-    # 簡易進出場策略：若當前價格 > 過去 6 小時平均 +1%，顯示出場；反之顯示進場
-    df["ma6"] = df["price"].rolling(window=6).mean()
-    df["signal"] = df.apply(lambda row: "進場" if row["price"] < row["ma6"] * 0.99 else ("出場" if row["price"] > row["ma6"] * 1.01 else ""), axis=1)
-
-    # 畫圖
+    # 3. 畫出互動式圖表
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["timestamp"], y=df["price"], mode='lines+markers', name="BTC Price", hovertemplate='時間: %{x}<br>價格: $%{y:.2f}<extra></extra>'))
-
-    # 加上進出場標記
-    entry_points = df[df["signal"] == "進場"]
-    exit_points = df[df["signal"] == "出場"]
-
-    fig.add_trace(go.Scatter(x=entry_points["timestamp"], y=entry_points["price"], mode='markers', marker=dict(color='green', size=10), name="進場"))
-    fig.add_trace(go.Scatter(x=exit_points["timestamp"], y=exit_points["price"], mode='markers', marker=dict(color='red', size=10), name="出場"))
-
-    fig.update_layout(title="Bitcoin Hourly Trend + Signal", xaxis_title="時間", yaxis_title="價格 (USD)", height=600)
+    fig.add_trace(go.Scatter(
+        x=df["Open Time"],
+        y=df["Close"],
+        mode="lines+markers",
+        name="BTC 收盤價",
+        hovertemplate="時間：%{x}<br>收盤價：%{y:$,.2f}"
+    ))
+    fig.update_layout(title="BTC 收盤價走勢", xaxis_title="時間", yaxis_title="價格 (USD)", template="plotly_dark")
 
     st.plotly_chart(fig, use_container_width=True)
 
